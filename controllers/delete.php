@@ -5,6 +5,13 @@ session_start();
 
 require_once "../config/database.php";
 
+// Only allow POST requests
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    header("Location: ../views/archives.php");
+    exit;
+}
+
+// Validate CSRF token
 if (
     empty($_SESSION['csrf_token']) ||
     empty($_POST['csrf_token']) ||
@@ -13,6 +20,7 @@ if (
     die("Invalid security token. Please go back and try again.");
 }
 
+// Validate archive ID
 $archiveId = filter_input(INPUT_POST, "archive_id", FILTER_VALIDATE_INT);
 
 if (!$archiveId) {
@@ -52,6 +60,8 @@ if (
     unlink($filePath);
 }
 
+// Return to My Archives
 header("Location: ../views/archives.php");
 exit;
+
 ?>

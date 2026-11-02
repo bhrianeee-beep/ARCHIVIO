@@ -1,13 +1,25 @@
 
 <?php
 
+session_start();
+
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once "../config/database.php";
 
-require_once "../config/database.php";
+// Get upload results
+$successCount = $_SESSION["upload_success"] ?? null;
+$failedCount = $_SESSION["upload_failed"] ?? null;
+$invalidCount = $_SESSION["upload_invalid"] ?? null;
+
+// Clear upload messages after displaying them
+unset(
+    $_SESSION["upload_success"],
+    $_SESSION["upload_failed"],
+    $_SESSION["upload_invalid"]
+);
 
 // Get all available categories
 $categoryQuery = $pdo->prepare(
@@ -20,15 +32,6 @@ $categoryQuery->execute();
 
 $categories = $categoryQuery->fetchAll(PDO::FETCH_ASSOC);
 
-?>
-
-<?php
-session_start();
-
-$successCount = $_SESSION["upload_success"] ?? null;
-$failedCount = $_SESSION["upload_failed"] ?? null;
-
-unset($_SESSION["upload_success"], $_SESSION["upload_failed"]);
 ?>
 
 <!DOCTYPE html>
@@ -58,8 +61,8 @@ unset($_SESSION["upload_success"], $_SESSION["upload_failed"]);
         <p>MAIN MENU</p>
 
         <a href="../index.php">Dashboard</a>
-        <a href="#">My Archives</a>
-        <a href="#">Categories</a>
+        <a href="archives.php">My Archives</a>
+        <a href="categories.php">Categories</a>
         <a href="upload.php" class="active">Upload Files</a>
 
     </aside>
@@ -93,22 +96,71 @@ unset($_SESSION["upload_success"], $_SESSION["upload_failed"]);
         <section class="content-box">
 
             <h2>Upload New Documents</h2>
-<?php if ($successCount !== null): ?>
-    <p style="color: green; font-weight: bold;">
-        Successfully uploaded <?= (int)$successCount ?> file(s).
-    </p>
-<?php endif; ?>
 
-<?php if ($failedCount !== null && $failedCount > 0): ?>
-    <p style="color: red; font-weight: bold;">
-        Failed to upload <?= (int)$failedCount ?> file(s).
-    </p>
-<?php endif; ?>
+            <!-- SUCCESS MESSAGE -->
+
+            <?php if ($successCount !== null && $successCount > 0): ?>
+
+                <p style="color: green; font-weight: bold;">
+                    Successfully uploaded
+                    <?= (int)$successCount ?> file(s).
+                </p>
+
+            <?php endif; ?>
+
+
+            <!-- FAILED UPLOAD MESSAGE -->
+
+            <?php if ($failedCount !== null && $failedCount > 0): ?>
+
+                <p style="color: red; font-weight: bold;">
+                    Failed to upload
+                    <?= (int)$failedCount ?> file(s).
+                    Please try again.
+                </p>
+
+            <?php endif; ?>
+
+
+            <!-- INVALID FILE MESSAGE -->
+
+            <?php if ($invalidCount !== null && $invalidCount > 0): ?>
+
+                <p style="color: red; font-weight: bold;">
+                    Upload failed! Unsupported file type or invalid file size.
+                    Please upload PDF, DOC, DOCX, TXT, JPG, JPEG, or PNG files.
+                    Maximum file size is 5 MB.
+                </p>
+
+            <?php endif; ?>
+
+
             <form
                 action="../controllers/upload.php"
                 method="POST"
                 enctype="multipart/form-data"
             >
+
+                <!-- DOCUMENT TITLE -->
+
+                <label for="title">
+                    Document Title
+                </label>
+
+                <br><br>
+
+                <input
+                    type="text"
+                    name="title"
+                    id="title"
+                    maxlength="255"
+                    placeholder="Enter document title (for single uploads)"
+                >
+
+                <br><br><br>
+
+
+                <!-- CATEGORY -->
 
                 <label for="category">
                     Select Category
@@ -137,6 +189,8 @@ unset($_SESSION["upload_success"], $_SESSION["upload_failed"]);
                 <br><br><br>
 
 
+                <!-- FILE SELECTION -->
+
                 <label for="files">
                     Select Documents
                 </label>
@@ -155,6 +209,11 @@ unset($_SESSION["upload_success"], $_SESSION["upload_failed"]);
 
                 <p>
                     You can select multiple files for batch uploading.
+                </p>
+
+                <p>
+                    Accepted formats: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG.
+                    Maximum size: 5 MB per file.
                 </p>
 
                 <br>

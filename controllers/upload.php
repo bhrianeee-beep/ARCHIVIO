@@ -34,6 +34,9 @@ if (!isset($_FILES["archives"])) {
     die("Please select at least one file.");
 }
 
+// Get custom title
+$customTitle = trim($_POST["title"] ?? "");
+
 // Allowed file types
 $allowedExtensions = ["pdf", "doc", "docx", "txt", "jpg", "jpeg", "png"];
 
@@ -50,12 +53,19 @@ if (!is_dir($uploadDirectory)) {
 // Initialize FIFO Queue
 $archiveQueue = new ArchiveQueue();
 
+// Initialize counters
+$successCount = 0;
+$failedCount = 0;
+$invalidCount = 0;
+
 $fileCount = count($_FILES["archives"]["name"]);
 
-// Add uploaded files to the queue
+// Add valid files to the queue
 for ($i = 0; $i < $fileCount; $i++) {
 
+    // Check upload errors
     if ($_FILES["archives"]["error"][$i] !== UPLOAD_ERR_OK) {
+        $failedCount++;
         continue;
     }
 
@@ -67,12 +77,15 @@ for ($i = 0; $i < $fileCount; $i++) {
         pathinfo($originalName, PATHINFO_EXTENSION)
     );
 
-    // Validate extension and size
+    // Validate file extension
     if (!in_array($extension, $allowedExtensions, true)) {
+        $invalidCount++;
         continue;
     }
 
+    // Validate file size
     if ($fileSize <= 0 || $fileSize > $maxFileSize) {
+        $invalidCount++;
         continue;
     }
 
@@ -89,7 +102,9 @@ for ($i = 0; $i < $fileCount; $i++) {
         "png" => ["image/png"]
     ];
 
+    // Validate MIME type
     if (!in_array($mimeType, $allowedMimeTypes[$extension] ?? [], true)) {
+        $invalidCount++;
         continue;
     }
 
@@ -103,9 +118,6 @@ for ($i = 0; $i < $fileCount; $i++) {
 }
 
 // Process Queue in FIFO order
-$successCount = 0;
-$failedCount = 0;
-
 while (!$archiveQueue->isEmpty()) {
 
     // Get the first queued file
@@ -123,6 +135,12 @@ while (!$archiveQueue->isEmpty()) {
 
             $fileSizeKB = round($file["file_size"] / 1024, 2);
 
+            // Use custom title for one file;
+            // use original filenames for multiple files
+            $title = ($fileCount === 1 && $customTitle !== "")
+                ? $customTitle
+                : $file["original_name"];
+
             // Save archive information into MySQL
             $insertQuery = $pdo->prepare(
                 "INSERT INTO archives
@@ -131,7 +149,7 @@ while (!$archiveQueue->isEmpty()) {
             );
 
             $insertQuery->execute([
-                $file["original_name"],
+                $title,
                 "uploads/" . $newFileName,
                 $fileSizeKB,
                 $categoryId
@@ -158,8 +176,10 @@ while (!$archiveQueue->isEmpty()) {
 // Save results for the next page
 $_SESSION["upload_success"] = $successCount;
 $_SESSION["upload_failed"] = $failedCount;
+$_SESSION["upload_invalid"] = $invalidCount;
 
 header("Location: ../views/upload.php");
 exit;
 
 ?>
+
